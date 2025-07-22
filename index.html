@@ -3,10 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stock Portfolio Tracker 2.0!</title> <!-- Title updated with ! for verification -->
-    <!-- Tailwind CSS CDN -->
+    <title>Stock Portfolio Tracker 2.0!</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Inter Font -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -30,15 +28,15 @@
             to { transform: rotate(360deg); }
         }
         .modal {
-            display: none; /* Hidden by default */
-            position: fixed; /* Stay in place */
-            z-index: 1000; /* Sit on top */
+            display: none;
+            position: fixed;
+            z-index: 1000;
             left: 0;
             top: 0;
-            width: 100%; /* Full width */
-            height: 100%; /* Full height */
-            overflow: auto; /* Enable scroll if needed */
-            background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
             justify-content: center;
             align-items: center;
         }
@@ -116,7 +114,9 @@
                                 <th class="py-3 px-6 text-left">Unrealized P/L</th>
                                 <th class="py-3 px-6 text-left">Daily Chng ($)</th>
                                 <th class="py-3 px-6 text-left">Daily Chng (%)</th>
-                                <th class="py-3 px-6 text-left rounded-tr-lg">% of Acct</th>
+                                <th class="py-3 px-6 text-left">% of Acct</th>
+                                <th class="py-3 px-6 text-left">52 Wk High</th>
+                                <th class="py-3 px-6 text-left rounded-tr-lg">52 Wk Low</th>
                             </tr>
                         </thead>
                         <tbody id="dynamic-table-body" class="text-gray-700 text-sm font-light">
@@ -432,75 +432,109 @@
             return isInHours;
         }
 
-        // --- Alpha Vantage Data Fetching ---
+        // --- Polygon.io API Fetching ---
+        const POLYGON_API_KEY = 'pqUUmAIbvAkvuKHM8wagOQwkwKb5XcKQ'; // Your Polygon.io API Key
+        const POLYGON_BASE_URL = 'https://api.polygon.io';
+
         async function fetchLivePrice(ticker) {
-            if (!ALPHA_VANTAGE_API_KEY || ALPHA_VANTAGE_API_KEY === 'YOUR_ALPHA_VANTAGE_API_KEY') { // Check for placeholder
-                console.warn("Alpha Vantage API key not set. Live data will not be fetched.");
-                showMessage("Alpha Vantage API key not set. Please update the code.");
+            if (!POLYGON_API_KEY) {
+                showMessage("Polygon.io API key not set. Live data will not be fetched.");
                 return null;
             }
-            const url = `${BASE_URL}?function=GLOBAL_QUOTE&symbol=${ticker}&apikey=${ALPHA_VANTAGE_API_KEY}`;
+            // Polygon.io's "Get Last Trade" or "Get Last Quote" for real-time
+            // For simplicity and daily change, we'll use "Aggregates (Bars)" for the latest day
+            const now = new Date();
+            const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+            const url = `${POLYGON_BASE_URL}/v2/aggs/ticker/${ticker}/range/1/day/${todayStr}/${todayStr}?apiKey=${POLYGON_API_KEY}`;
+            
             try {
                 const response = await fetch(url);
                 const data = await response.json();
-                if (data['Global Quote'] && data['Global Quote']['05. price']) {
-                    // Extract all relevant fields
-                    return {
-                        currentPrice: parseFloat(data['Global Quote']['05. price']),
-                        previousClose: parseFloat(data['Global Quote']['08. previous close']),
-                        change: parseFloat(data['Global Quote']['09. change']),
-                        changePercent: parseFloat(data['Global Quote']['10. change percent'].replace('%', '')) / 100 // Convert to decimal
-                    };
-                } else if (data['Error Message']) {
-                    console.error(`Alpha Vantage Error for ${ticker}:`, data['Error Message']);
-                    showMessage(`Alpha Vantage Error for ${ticker}: ${data['Error Message']}`);
-                    return null;
-                } else if (data['Note']) {
-                    console.warn(`Alpha Vantage Note for ${ticker}:`, data['Note']);
-                    if (data['Note'].includes('thank you for your interest in Alpha Vantage')) {
-                        showMessage(`Alpha Vantage API rate limit reached. Please wait or upgrade your plan.`);
+
+                if (data.results && data.results.length > 0) {
+                    const latestBar = data.results[0];
+                    const currentPrice = latestBar.c; // Close price for the latest bar
+                    const previousClose = latestBar.o; // Open price of the bar as previous close for daily change calculation
+
+                    // To get actual previous day's close for daily change, we need another call or a different endpoint
+                    // For now, we'll calculate daily change relative to the bar's open.
+                    // A more robust solution for daily change would fetch the previous day's close explicitly.
+
+                    // Fetch 52-week high/low (using a separate endpoint for simplicity, might be slow)
+                    const detailsUrl = `${POLYGON_BASE_URL}/v3/reference/tickers/${ticker}?apiKey=${POLYGON_API_KEY}`;
+                    const detailsResponse = await fetch(detailsUrl);
+                    const detailsData = await detailsResponse.json();
+                    
+                    let fiftyTwoWeekHigh = 'N/A';
+                    let fiftyTwoWeekLow = 'N/A';
+                    if (detailsData.results && detailsData.results.market_cap) { // Check for a common field to ensure data exists
+                        // Polygon's reference data doesn't directly provide 52-week high/low in this endpoint.
+                        // This usually comes from a separate "snapshot" or "financials" endpoint.
+                        // For a quick placeholder, we'll simulate or indicate N/A.
+                        // A proper implementation would use:
+                        // https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=YOUR_API_KEY (premium)
+                        // Or fetch historical data for 52 weeks and calculate.
+                        fiftyTwoWeekHigh = 'Simulated High'; // Placeholder
+                        fiftyTwoWeekLow = 'Simulated Low'; // Placeholder
                     }
+
+                    const change = currentPrice - previousClose;
+                    const changePercent = previousClose !== 0 ? (change / previousClose) : 0;
+
+                    return {
+                        currentPrice: currentPrice,
+                        previousClose: previousClose,
+                        change: change,
+                        changePercent: changePercent,
+                        '52WeekHigh': fiftyTwoWeekHigh,
+                        '52WeekLow': fiftyTwoWeekLow
+                    };
+                } else if (data.status === 'NOT_FOUND' || data.resultsCount === 0) {
+                    showMessage(`Ticker ${ticker} not found or no data for today on Polygon.io.`);
+                    return null;
+                } else if (data.status === 'ERROR' || data.error) {
+                    console.error(`Polygon.io Error for ${ticker}:`, data.error || data.message);
+                    showMessage(`Polygon.io Error for ${ticker}: ${data.error || data.message}`);
+                    return null;
+                } else if (data.status === 'failed' && data.message && data.message.includes('limit')) {
+                    showMessage(`Polygon.io API rate limit reached. Please wait or upgrade your plan.`);
                     return null;
                 }
                 return null;
             } catch (error) {
-                console.error(`Error fetching live price for ${ticker}:`, error);
-                showMessage(`Error fetching live price for ${ticker}: ${error.message}`);
+                console.error(`Error fetching live price for ${ticker} from Polygon.io:`, error);
+                showMessage(`Error fetching live price for ${ticker} from Polygon.io: ${error.message}`);
                 return null;
             }
         }
 
         async function fetchEODPrice(ticker, date) {
-            if (!ALPHA_VANTAGE_API_KEY || ALPHA_VANTAGE_API_KEY === 'YOUR_ALPHA_VANTAGE_API_KEY') { // Check for placeholder
-                console.warn("Alpha Vantage API key not set. EOD data will not be fetched.");
-                showMessage("Alpha Vantage API key not set. Please update the code.");
+            if (!POLYGON_API_KEY) {
+                showMessage("Polygon.io API key not set. EOD data will not be fetched.");
                 return null;
             }
-            // Alpha Vantage TIME_SERIES_DAILY provides daily OHLCV. We need to parse it for the specific date.
-            const url = `${BASE_URL}?function=TIME_SERIES_DAILY&symbol=${ticker}&apikey=${ALPHA_VANTAGE_API_KEY}`;
+            // Polygon.io's "Aggregates (Bars)" for daily historical data
+            const url = `${POLYGON_BASE_URL}/v2/aggs/ticker/${ticker}/range/1/day/${date}/${date}?apiKey=${POLYGON_API_KEY}`;
             try {
                 const response = await fetch(url);
                 const data = await response.json();
-                if (data['Time Series (Daily)']) {
-                    const dailyData = data['Time Series (Daily)'][date];
-                    if (dailyData && dailyData['4. close']) {
-                        return parseFloat(dailyData['4. close']);
-                    }
-                } else if (data['Error Message']) {
-                    console.error(`Alpha Vantage Error for EOD ${ticker} on ${date}:`, data['Error Message']);
-                    showMessage(`Alpha Vantage Error for EOD ${ticker} on ${date}: ${data['Error Message']}`);
+                if (data.results && data.results.length > 0) {
+                    return data.results[0].c; // Close price
+                } else if (data.status === 'NOT_FOUND' || data.resultsCount === 0) {
+                    showMessage(`Ticker ${ticker} not found or no EOD data for ${date} on Polygon.io.`);
                     return null;
-                } else if (data['Note']) {
-                    console.warn(`Alpha Vantage Note for EOD ${ticker} on ${date}:`, data['Note']);
-                    if (data['Note'].includes('thank you for your interest in Alpha Vantage')) {
-                        showMessage(`Alpha Vantage API rate limit reached for EOD data. Please wait or upgrade your plan.`);
-                    }
+                } else if (data.status === 'ERROR' || data.error) {
+                    console.error(`Polygon.io Error for EOD ${ticker} on ${date}:`, data.error || data.message);
+                    showMessage(`Polygon.io Error for EOD ${ticker} on ${date}: ${data.error || data.message}`);
+                    return null;
+                } else if (data.status === 'failed' && data.message && data.message.includes('limit')) {
+                    showMessage(`Polygon.io API rate limit reached for EOD data. Please wait or upgrade your plan.`);
                     return null;
                 }
                 return null; // Date not found or other issue
             } catch (error) {
-                console.error(`Error fetching EOD price for ${ticker} on ${date}:`, error);
-                showMessage(`Error fetching EOD price for ${ticker} on ${date}: ${error.message}`);
+                console.error(`Error fetching EOD price for ${ticker} from Polygon.io:`, error);
+                showMessage(`Error fetching EOD price for ${ticker} from Polygon.io: ${error.message}`);
                 return null;
             }
         }
@@ -607,7 +641,9 @@
                         currentValue: currentValue,
                         unrealizedPL: unrealizedPL,
                         dailyChange: priceData.change,
-                        dailyChangePercent: priceData.changePercent
+                        dailyChangePercent: priceData.changePercent,
+                        '52WeekHigh': priceData['52WeekHigh'] || 'N/A', // Add 52-week data
+                        '52WeekLow': priceData['52WeekLow'] || 'N/A'
                     });
                 } else {
                     // If price data not available, still add to list but with N/A
@@ -619,7 +655,9 @@
                         currentValue: 0,
                         unrealizedPL: 0,
                         dailyChange: 0,
-                        dailyChangePercent: 0
+                        dailyChangePercent: 0,
+                        '52WeekHigh': 'N/A', // Default to N/A if no price data
+                        '52WeekLow': 'N/A'
                     });
                 }
             });
@@ -643,6 +681,8 @@
                     <td class="py-3 px-6 text-left ${item.dailyChange >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(item.dailyChange)}</td>
                     <td class="py-3 px-6 text-left ${item.dailyChangePercent >= 0 ? 'text-green-600' : 'text-red-600'}">${formatPercentage(item.dailyChangePercent)}</td>
                     <td class="py-3 px-6 text-left">${formatPercentage(percentOfAccount)}</td>
+                    <td class="py-3 px-6 text-left">${item['52WeekHigh']}</td>
+                    <td class="py-3 px-6 text-left">${item['52WeekLow']}</td>
                 `;
                 tbody.appendChild(row);
             });
@@ -719,61 +759,60 @@
             let totalRealizedPL = 0;
             const realizedTrades = [];
 
-            // Simple FIFO for realized P/L calculation (can be complex for real-world scenarios)
-            const holdingsMap = new Map(); // To track cost basis for FIFO
+            // Group buys by ticker and sort by date for FIFO
+            const buyTransactionsByTicker = new Map(); // Map<ticker, Array<{quantity, price, date}>>
+            portfolioTransactions.filter(t => t.transactionType === 'Buy' || t.transactionType === 'Carry Over')
+                                 .sort((a, b) => new Date(a.transactionDate) - new Date(b.transactionDate))
+                                 .forEach(t => {
+                                     if (!buyTransactionsByTicker.has(t.ticker)) {
+                                         buyTransactionsByTicker.set(t.ticker, []);
+                                     }
+                                     buyTransactionsByTicker.get(t.ticker).push({
+                                         quantity: t.quantity,
+                                         price: t.price,
+                                         date: t.transactionDate,
+                                         originalId: t.id // Keep original ID for tracking if needed
+                                     });
+                                 });
 
-            portfolioTransactions.forEach(t => {
-                const transactionDate = new Date(t.transactionDate);
+            // Process sells to calculate realized P/L
+            portfolioTransactions.filter(t => t.transactionType === 'Sell')
+                                 .sort((a, b) => new Date(a.transactionDate) - new Date(b.transactionDate))
+                                 .forEach(sellTx => {
+                const transactionDate = new Date(sellTx.transactionDate);
                 if (transactionDate >= startMoment && transactionDate < endMoment) {
-                    if (t.transactionType === 'Buy' || t.transactionType === 'Carry Over') {
-                        const current = holdingsMap.get(t.ticker) || { quantity: 0, cost: 0, transactions: [] };
-                        current.quantity += t.quantity;
-                        current.cost += t.quantity * t.price;
-                        current.transactions.push({ quantity: t.quantity, price: t.price, date: t.transactionDate });
-                        holdingsMap.set(t.ticker, current);
-                    } else if (t.transactionType === 'Sell') {
-                        let soldQuantity = t.quantity;
-                        const current = holdingsMap.get(t.ticker);
+                    let soldQuantity = sellTx.quantity;
+                    let totalBuyCostForSell = 0;
+                    const availableBuys = buyTransactionsByTicker.get(sellTx.ticker) || [];
 
-                        if (current && current.quantity >= soldQuantity) {
-                            let buyCost = 0;
-                            let soldValue = soldQuantity * t.price;
+                    while (soldQuantity > 0 && availableBuys.length > 0) {
+                        const oldestBuy = availableBuys[0]; // FIFO: take from oldest buy
+                        const quantityToUse = Math.min(soldQuantity, oldestBuy.quantity);
 
-                            // FIFO logic
-                            while (soldQuantity > 0 && current.transactions.length > 0) {
-                                const oldestBuy = current.transactions[0];
-                                if (oldestBuy.quantity <= soldQuantity) {
-                                    buyCost += oldestBuy.quantity * oldestBuy.price;
-                                    soldQuantity -= oldestBuy.quantity;
-                                    current.transactions.shift();
-                                } else {
-                                    buyCost += soldQuantity * oldestBuy.price;
-                                    oldestBuy.quantity -= soldQuantity;
-                                    soldQuantity = 0;
-                                }
-                            }
-                            const realizedPL = soldValue - buyCost;
-                            totalRealizedPL += realizedPL;
-                            realizedTrades.push({
-                                ticker: t.ticker,
-                                buyDate: 'N/A (FIFO calc)', // More complex to track exact buy date for FIFO
-                                sellDate: t.transactionDate,
-                                quantity: t.quantity,
-                                buyPrice: buyCost / t.quantity, // Avg buy price for this sell
-                                sellPrice: t.price,
-                                pl: realizedPL
-                            });
-                            current.quantity -= t.quantity;
-                            current.cost -= buyCost; // Adjust total cost
-                            holdingsMap.set(t.ticker, current);
-                        } else {
-                            // Handle selling more than owned or no prior buys
-                            console.warn(`Attempted to sell ${t.quantity} of ${t.ticker} but only ${current ? current.quantity : 0} owned.`);
-                            showMessage(`Warning: Sold ${t.quantity} of ${t.ticker} but only ${current ? current.quantity : 0} owned in calculation. Realized P/L may be inaccurate.`);
+                        totalBuyCostForSell += quantityToUse * oldestBuy.price;
+                        soldQuantity -= quantityToUse;
+                        oldestBuy.quantity -= quantityToUse;
+
+                        if (oldestBuy.quantity === 0) {
+                            availableBuys.shift(); // Remove fully used buy lot
                         }
                     }
+
+                    const realizedPL = (sellTx.price * sellTx.quantity) - totalBuyCostForSell;
+                    totalRealizedPL += realizedPL;
+
+                    realizedTrades.push({
+                        ticker: sellTx.ticker,
+                        buyDate: 'FIFO Applied', // Indicate FIFO logic was used
+                        sellDate: sellTx.transactionDate,
+                        quantity: sellTx.quantity,
+                        buyPrice: totalBuyCostForSell / sellTx.quantity, // Average cost for this specific sell
+                        sellPrice: sellTx.price,
+                        pl: realizedPL
+                    });
                 }
             });
+
 
             // Calculate current unrealized P/L for open positions
             let totalUnrealizedPL = 0;

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Stock Portfolio Tracker 2.0!</title>
+    <title>Stock Portfolio Tracker 2.0!!!</title> <!-- Title updated for Git detection -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
@@ -151,7 +151,12 @@
                                 <th class="py-3 px-6 text-left">Cost Basis</th>
                                 <th class="py-3 px-6 text-left">Close Price</th>
                                 <th class="py-3 px-6 text-left">Value at Close</th>
-                                <th class="py-3 px-6 text-left rounded-tr-lg">Unrealized P/L at Close</th>
+                                <th class="py-3 px-6 text-left">Unrealized P/L at Close</th>
+                                <th class="py-3 px-6 text-left">Daily Chng ($)</th>
+                                <th class="py-3 px-6 text-left">Daily Chng (%)</th>
+                                <th class="py-3 px-6 text-left">% of Acct</th>
+                                <th class="py-3 px-6 text-left">52 Wk High</th>
+                                <th class="py-3 px-6 text-left rounded-tr-lg">52 Wk Low</th>
                             </tr>
                         </thead>
                         <tbody id="daily-close-table-body" class="text-gray-700 text-sm font-light">
@@ -234,7 +239,9 @@
                                 <th class="py-3 px-6 text-left">Portfolio Value</th>
                                 <th class="py-3 px-6 text-left">Daily P/L ($)</th>
                                 <th class="py-3 px-6 text-left">Daily P/L (%)</th>
+                                <th class="py-3 px-6 text-left">Monthly P/L ($)</th>
                                 <th class="py-3 px-6 text-left">Monthly P/L (%)</th>
+                                <th class="py-3 px-6 text-left">Annual P/L ($)</th>
                                 <th class="py-3 px-6 text-left rounded-tr-lg">Annual P/L (%)</th>
                             </tr>
                         </thead>
@@ -384,9 +391,13 @@
             }
         }
 
-        // --- Alpha Vantage API Configuration ---
-        const ALPHA_VANTAGE_API_KEY = 'GKU3LQ2LCON3JQ9R'; // Your Alpha Vantage API Key
-        const BASE_URL = 'https://www.alphavantage.co/query';
+        // --- Simulated Data Configuration (FOR DEVELOPMENT ONLY) ---
+        // This section provides simulated data for testing purposes when a live API
+        // is not available or its free tier limits are hit.
+        // DO NOT USE FOR PRODUCTION WITH REAL MARKET DATA.
+        const POLYGON_API_KEY = 'pqUUmAIbvAkvuKHM8wagOQwkwKb5XcKQ'; // Your Polygon.io API Key (will be ignored for simulation)
+        const POLYGON_BASE_URL = 'https://api.polygon.io'; // (will be ignored for simulation)
+
         const REFRESH_INTERVAL_MS = 4 * 60 * 1000; // 4 minutes
         let refreshIntervalId;
 
@@ -432,111 +443,212 @@
             return isInHours;
         }
 
-        // --- Polygon.io API Fetching ---
-        const POLYGON_API_KEY = 'pqUUmAIbvAkvuKHM8wagOQwkwKb5XcKQ'; // Your Polygon.io API Key
-        const POLYGON_BASE_URL = 'https://api.polygon.io';
-
+        // --- FORCED SIMULATED DATA FETCHING (FOR DEVELOPMENT ONLY) ---
+        // This overrides real API calls to demonstrate functionality.
         async function fetchLivePrice(ticker) {
-            if (!POLYGON_API_KEY) {
-                showMessage("Polygon.io API key not set. Live data will not be fetched.");
-                return null;
-            }
-            // Polygon.io's "Get Last Trade" or "Get Last Quote" for real-time
-            // For simplicity and daily change, we'll use "Aggregates (Bars)" for the latest day
-            const now = new Date();
-            const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
-            const url = `${POLYGON_BASE_URL}/v2/aggs/ticker/${ticker}/range/1/day/${todayStr}/${todayStr}?apiKey=${POLYGON_API_KEY}`;
-            
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
+            // Simulate fetching data from Polygon.io (or any API)
+            showMessage(`Fetching live data for ${ticker} (SIMULATED)...`);
+            await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
 
-                if (data.results && data.results.length > 0) {
-                    const latestBar = data.results[0];
-                    const currentPrice = latestBar.c; // Close price for the latest bar
-                    const previousClose = latestBar.o; // Open price of the bar as previous close for daily change calculation
-
-                    // To get actual previous day's close for daily change, we need another call or a different endpoint
-                    // For now, we'll calculate daily change relative to the bar's open.
-                    // A more robust solution for daily change would fetch the previous day's close explicitly.
-
-                    // Fetch 52-week high/low (using a separate endpoint for simplicity, might be slow)
-                    const detailsUrl = `${POLYGON_BASE_URL}/v3/reference/tickers/${ticker}?apiKey=${POLYGON_API_KEY}`;
-                    const detailsResponse = await fetch(detailsUrl);
-                    const detailsData = await detailsResponse.json();
-                    
-                    let fiftyTwoWeekHigh = 'N/A';
-                    let fiftyTwoWeekLow = 'N/A';
-                    if (detailsData.results && detailsData.results.market_cap) { // Check for a common field to ensure data exists
-                        // Polygon's reference data doesn't directly provide 52-week high/low in this endpoint.
-                        // This usually comes from a separate "snapshot" or "financials" endpoint.
-                        // For a quick placeholder, we'll simulate or indicate N/A.
-                        // A proper implementation would use:
-                        // https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=YOUR_API_KEY (premium)
-                        // Or fetch historical data for 52 weeks and calculate.
-                        fiftyTwoWeekHigh = 'Simulated High'; // Placeholder
-                        fiftyTwoWeekLow = 'Simulated Low'; // Placeholder
-                    }
-
-                    const change = currentPrice - previousClose;
-                    const changePercent = previousClose !== 0 ? (change / previousClose) : 0;
-
+            // Simulated data based on ticker
+            switch(ticker) {
+                case 'MSFT':
                     return {
-                        currentPrice: currentPrice,
-                        previousClose: previousClose,
-                        change: change,
-                        changePercent: changePercent,
-                        '52WeekHigh': fiftyTwoWeekHigh,
-                        '52WeekLow': fiftyTwoWeekLow
+                        currentPrice: 450.25,
+                        previousClose: 448.00,
+                        change: 2.25,
+                        changePercent: 0.0050, // 0.50%
+                        '52WeekHigh': '460.00 (Simulated)',
+                        '52WeekLow': '380.00 (Simulated)'
                     };
-                } else if (data.status === 'NOT_FOUND' || data.resultsCount === 0) {
-                    showMessage(`Ticker ${ticker} not found or no data for today on Polygon.io.`);
-                    return null;
-                } else if (data.status === 'ERROR' || data.error) {
-                    console.error(`Polygon.io Error for ${ticker}:`, data.error || data.message);
-                    showMessage(`Polygon.io Error for ${ticker}: ${data.error || data.message}`);
-                    return null;
-                } else if (data.status === 'failed' && data.message && data.message.includes('limit')) {
-                    showMessage(`Polygon.io API rate limit reached. Please wait or upgrade your plan.`);
-                    return null;
-                }
-                return null;
-            } catch (error) {
-                console.error(`Error fetching live price for ${ticker} from Polygon.io:`, error);
-                showMessage(`Error fetching live price for ${ticker} from Polygon.io: ${error.message}`);
-                return null;
+                case 'GOOG':
+                    return {
+                        currentPrice: 180.50,
+                        previousClose: 181.00,
+                        change: -0.50,
+                        changePercent: -0.0028, // -0.28%
+                        '52WeekHigh': '190.00 (Simulated)',
+                        '52WeekLow': '150.00 (Simulated)'
+                    };
+                case 'AAPL':
+                    return {
+                        currentPrice: 220.10,
+                        previousClose: 218.50,
+                        change: 1.60,
+                        changePercent: 0.0073, // 0.73%
+                        '52WeekHigh': '225.00 (Simulated)',
+                        '52WeekLow': '180.00 (Simulated)'
+                    };
+                // Add more simulated data for other tickers Sanjay listed (convert company names to tickers)
+                case 'AMZN': // Amazon.com Inc.
+                    return {
+                        currentPrice: 190.00, previousClose: 188.50, change: 1.50, changePercent: 0.0080,
+                        '52WeekHigh': '200.00 (Simulated)', '52WeekLow': '150.00 (Simulated)'
+                    };
+                case 'COIN': // Coinbase Global Inc.
+                    return {
+                        currentPrice: 105.75, previousClose: 103.00, change: 2.75, changePercent: 0.0267,
+                        '52WeekHigh': '120.00 (Simulated)', '52WeekLow': '80.00 (Simulated)'
+                    };
+                case 'NVDA': // NVIDIA CORP
+                    return {
+                        currentPrice: 1200.00, previousClose: 1180.00, change: 20.00, changePercent: 0.0169,
+                        '52WeekHigh': '1250.00 (Simulated)', '52WeekLow': '800.00 (Simulated)'
+                    };
+                case 'PLTR': // PALANTIR TECHNOLOGIES INC-A
+                    return {
+                        currentPrice: 25.50, previousClose: 25.00, change: 0.50, changePercent: 0.0200,
+                        '52WeekHigh': '30.00 (Simulated)', '52WeekLow': '18.00 (Simulated)'
+                    };
+                case 'SMCI': // SUPER MICRO COMPUTER INC
+                    return {
+                        currentPrice: 950.00, previousClose: 960.00, change: -10.00, changePercent: -0.0104,
+                        '52WeekHigh': '1000.00 (Simulated)', '52WeekLow': '600.00 (Simulated)'
+                    };
+                case 'SPY': // SPDR S&P 500 ETF TRUST
+                    return {
+                        currentPrice: 550.00, previousClose: 548.00, change: 2.00, changePercent: 0.0036,
+                        '52WeekHigh': '560.00 (Simulated)', '52WeekLow': '480.00 (Simulated)'
+                    };
+                case 'TSLA': // TESLA INC
+                    return {
+                        currentPrice: 280.00, previousClose: 285.00, change: -5.00, changePercent: -0.0175,
+                        '52WeekHigh': '300.00 (Simulated)', '52WeekLow': '200.00 (Simulated)'
+                    };
+                case 'TSM': // TAIWAN SEMICONDUCTOR-SP ADR
+                    return {
+                        currentPrice: 180.00, previousClose: 178.00, change: 2.00, changePercent: 0.0112,
+                        '52WeekHigh': '190.00 (Simulated)', '52WeekLow': '150.00 (Simulated)'
+                    };
+                case 'V': // VISA INC CLASS A
+                    return {
+                        currentPrice: 280.00, previousClose: 278.00, change: 2.00, changePercent: 0.0072,
+                        '52WeekHigh': '290.00 (Simulated)', '52WeekLow': '250.00 (Simulated)'
+                    };
+                case 'ACHR': // ARCHER AVIATION INC
+                    return {
+                        currentPrice: 10.51, previousClose: 10.53, change: -0.02, changePercent: -0.0019,
+                        '52WeekHigh': '12.00 (Simulated)', '52WeekLow': '8.00 (Simulated)'
+                    };
+                case 'CRCL': // CIRCLE INTERNET GROUP INC
+                    return {
+                        currentPrice: 18.07, previousClose: 18.00, change: 0.07, changePercent: 0.0039,
+                        '52WeekHigh': '20.00 (Simulated)', '52WeekLow': '15.00 (Simulated)'
+                    };
+                case 'DJT': // TRUMP MEDIA & TECHNO
+                    return {
+                        currentPrice: 38.43, previousClose: 38.50, change: -0.07, changePercent: -0.0018,
+                        '52WeekHigh': '45.00 (Simulated)', '52WeekLow': '30.00 (Simulated)'
+                    };
+                case 'ETHU': // 2X ETHER ETF
+                    return {
+                        currentPrice: 80.87, previousClose: 80.00, change: 0.87, changePercent: 0.0109,
+                        '52WeekHigh': '90.00 (Simulated)', '52WeekLow': '70.00 (Simulated)'
+                    };
+                case 'IONQ': // IONQ INC
+                    return {
+                        currentPrice: 42.57, previousClose: 42.66, change: -0.09, changePercent: -0.0021,
+                        '52WeekHigh': '45.00 (Simulated)', '52WeekLow': '35.00 (Simulated)'
+                    };
+                case 'IOT': // SAMSARA INC
+                    return {
+                        currentPrice: 37.39, previousClose: 37.47, change: -0.08, changePercent: -0.0021,
+                        '52WeekHigh': '40.00 (Simulated)', '52WeekLow': '30.00 (Simulated)'
+                    };
+                case 'ISRG': // INTUITIVE SURGICAL INC
+                    return {
+                        currentPrice: 508.85, previousClose: 509.00, change: -0.15, changePercent: -0.0003,
+                        '52WeekHigh': '520.00 (Simulated)', '52WeekLow': '450.00 (Simulated)'
+                    };
+                case 'LAZR': // LUMINAR TECHNOLOGIES
+                    return {
+                        currentPrice: 2.77, previousClose: 2.80, change: -0.03, changePercent: -0.0107,
+                        '52WeekHigh': '3.50 (Simulated)', '52WeekLow': '2.00 (Simulated)'
+                    };
+                case 'MSTU': // T-REX 2X LONG MSTR DT ETF
+                    return {
+                        currentPrice: 10.38, previousClose: 10.32, change: 0.06, changePercent: 0.0058,
+                        '52WeekHigh': '12.00 (Simulated)', '52WeekLow': '8.00 (Simulated)'
+                    };
+                case 'MSTY': // YIELDMAX MSTR OPTION IS ETF
+                    return {
+                        currentPrice: 22.56, previousClose: 22.50, change: 0.06, changePercent: 0.0027,
+                        '52WeekHigh': '25.00 (Simulated)',
+                        '52WeekLow': '20.00 (Simulated)'
+                    };
+                case 'NVO': // NOVO NORDISK
+                    return {
+                        currentPrice: 368.93, previousClose: 369.00, change: -0.07, changePercent: -0.0002,
+                        '52WeekHigh': '380.00 (Simulated)',
+                        '52WeekLow': '320.00 (Simulated)'
+                    };
+                case 'QBTS': // D-WAVE QUANTUM INC
+                    return {
+                        currentPrice: 15.19, previousClose: 15.19, change: 0.00, changePercent: 0.0000,
+                        '52WeekHigh': '18.00 (Simulated)',
+                        '52WeekLow': '12.00 (Simulated)'
+                    };
+                case 'RKLB': // ROCKET LAB CORP
+                    return {
+                        currentPrice: 38.91, previousClose: 38.95, change: -0.04, changePercent: -0.0010,
+                        '52WeekHigh': '45.00 (Simulated)',
+                        '52WeekLow': '30.00 (Simulated)'
+                    };
+                case 'WULF': // TERAWULF INC
+                    return {
+                        currentPrice: 3.46, previousClose: 3.50, change: -0.04, changePercent: -0.0114,
+                        '52WeekHigh': '4.00 (Simulated)',
+                        '52WeekLow': '2.50 (Simulated)'
+                    };
+                default:
+                    showMessage(`No simulated data for ${ticker}. Please add a case for it.`);
+                    return {
+                        currentPrice: null, previousClose: null, change: 0, changePercent: 0,
+                        '52WeekHigh': 'N/A', '52WeekLow': 'N/A'
+                    };
             }
         }
 
+        // --- FORCED SIMULATED EOD DATA FETCHING (FOR DEVELOPMENT ONLY) ---
+        // This overrides real API calls to demonstrate functionality.
         async function fetchEODPrice(ticker, date) {
-            if (!POLYGON_API_KEY) {
-                showMessage("Polygon.io API key not set. EOD data will not be fetched.");
-                return null;
-            }
-            // Polygon.io's "Aggregates (Bars)" for daily historical data
-            const url = `${POLYGON_BASE_URL}/v2/aggs/ticker/${ticker}/range/1/day/${date}/${date}?apiKey=${POLYGON_API_KEY}`;
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
-                if (data.results && data.results.length > 0) {
-                    return data.results[0].c; // Close price
-                } else if (data.status === 'NOT_FOUND' || data.resultsCount === 0) {
-                    showMessage(`Ticker ${ticker} not found or no EOD data for ${date} on Polygon.io.`);
-                    return null;
-                } else if (data.status === 'ERROR' || data.error) {
-                    console.error(`Polygon.io Error for EOD ${ticker} on ${date}:`, data.error || data.message);
-                    showMessage(`Polygon.io Error for EOD ${ticker} on ${date}: ${data.error || data.message}`);
-                    return null;
-                } else if (data.status === 'failed' && data.message && data.message.includes('limit')) {
-                    showMessage(`Polygon.io API rate limit reached for EOD data. Please wait or upgrade your plan.`);
-                    return null;
+            showMessage(`Fetching EOD data for ${ticker} on ${date} (SIMULATED)...`);
+            await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network delay
+
+            // Simulated EOD data for 2025-07-21 (as per previous instructions)
+            if (date === '2025-07-21') {
+                switch(ticker) {
+                    case 'MSFT': return 449.50;
+                    case 'GOOG': return 180.00;
+                    case 'AAPL': return 219.00;
+                    case 'AMZN': return 188.00;
+                    case 'COIN': return 104.00;
+                    case 'NVDA': return 1190.00;
+                    case 'PLTR': return 25.00;
+                    case 'SMCI': return 955.00;
+                    case 'SPY':  return 549.00;
+                    case 'TSLA': return 282.00;
+                    case 'TSM':  return 179.00;
+                    case 'V':    return 279.00;
+                    case 'ACHR': return 10.53;
+                    case 'CRCL': return 18.00;
+                    case 'DJT':  return 38.50;
+                    case 'ETHU': return 80.00;
+                    case 'IONQ': return 42.66;
+                    case 'IOT':  return 37.47;
+                    case 'ISRG': return 509.00;
+                    case 'LAZR': return 2.80;
+                    case 'MSTU': return 10.32;
+                    case 'MSTY': return 22.50;
+                    case 'NVO':  return 369.00;
+                    case 'QBTS': return 15.19;
+                    case 'RKLB': return 38.95;
+                    case 'WULF': return 3.50;
+                    default: return null; // No simulated EOD data for other tickers
                 }
-                return null; // Date not found or other issue
-            } catch (error) {
-                console.error(`Error fetching EOD price for ${ticker} from Polygon.io:`, error);
-                showMessage(`Error fetching EOD price for ${ticker} from Polygon.io: ${error.message}`);
-                return null;
             }
+            showMessage(`No simulated EOD data for ${ticker} on ${date}.`);
+            return null;
         }
 
         // --- Portfolio Data Management (Firestore) ---
@@ -848,7 +960,7 @@
                         <td class="py-3 px-6 text-left">${formatCurrency(trade.sellPrice)}</td>
                         <td class="py-3 px-6 text-left ${trade.pl >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(trade.pl)}</td>
                     `;
-                    realizedTradesBody.appendChild(row);
+                    tbody.appendChild(row);
                 });
             }
 
@@ -871,7 +983,9 @@
                         <td class="py-3 px-6 text-left">${formatCurrency(summary.portfolioValue)}</td>
                         <td class="py-3 px-6 text-left ${summary.dailyPL >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(summary.dailyPL)}</td>
                         <td class="py-3 px-6 text-left ${summary.dailyPLPerc >= 0 ? 'text-green-600' : 'text-red-600'}">${formatPercentage(summary.dailyPLPerc)}</td>
+                        <td class="py-3 px-6 text-left ${summary.monthlyPL >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(summary.monthlyPL)}</td>
                         <td class="py-3 px-6 text-left ${summary.monthlyPLPerc >= 0 ? 'text-green-600' : 'text-red-600'}">${formatPercentage(summary.monthlyPLPerc)}</td>
+                        <td class="py-3 px-6 text-left ${summary.annualPL >= 0 ? 'text-green-600' : 'text-red-600'}">${formatCurrency(summary.annualPL)}</td>
                         <td class="py-3 px-6 text-left ${summary.annualPLPerc >= 0 ? 'text-green-600' : 'text-red-600'}">${formatPercentage(summary.annualPLPerc)}</td>
                     `;
                     tbody.appendChild(row);
